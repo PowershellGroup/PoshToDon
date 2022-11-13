@@ -229,7 +229,6 @@ function Get-MastodonNotification {
     Invoke-MastodonApiRequest -Method:Get -Route:"api/v1/notifications/$Id"
 }
 
-
 # function Connect-MastodonInstance {
 #     param([string] $Instance, [string] $Email, [string] $Password)
 #     $script:instance = $Instance
