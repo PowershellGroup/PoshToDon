@@ -1,4 +1,9 @@
+#Requires -PSEdition Core
+
 $script:validScopes = "read", "write", "follow", "push", "crypto"
+
+# https://github.com/glacasa/Mastonet/blob/main/Mastonet/Enums/NotificationType.cs
+$script:notificationTypes = "follow", "favourite", "reblog", "mention", "poll"
 
 class AppRegistration {
     [string] $client_id
@@ -117,7 +122,7 @@ function New-MastodonApplication {
 function Connect-MastodonApplication {
     param(
         [string] $Email,
-        [string] $Password,
+        [securestring] $Password,
         [Validateset({ $script:validScopes })]
         [string[]] $Scope
     )
@@ -131,7 +136,7 @@ function Connect-MastodonApplication {
         client_secret = $script:appRegistration.client_secret
         grant_type = 'password'
         username = $Email
-        password = $Password
+        password = ConvertFrom-SecureString $Password -AsPlainText
     }
 
     $auth = Invoke-MastodonApiRequest -Method:Post -Route:"oauth/token" -Data:$data
@@ -141,9 +146,50 @@ function Connect-MastodonApplication {
     return $auth
 }
 
+# from here:
+# https://github.com/glacasa/Mastonet/blob/main/Mastonet/MastodonClient.cs
+# ...
+
 function Get-MastodonInstance {
     Invoke-MastodonApiRequest -Method:Get -Route:"api/v1/instance"
 }
+
+# example
+# Get-MastodonNotifications -Limit 300 -MaxId 87886 -ExcludeTypes favourite,mention | FT
+function Get-MastodonNotifications {
+    param(
+        [System.Nullable[long]] $MaxId,
+
+        [System.Nullable[long]] $SinceId,
+
+        [System.Nullable[long]] $MinId,
+
+        [System.Nullable[int]] $Limit,
+
+        [ValidateScript({ $_ -in $script:notificationTypes })]
+        [string[]] $ExcludeTypes
+    )
+    # https://github.com/glacasa/Mastonet/blob/main/Mastonet/ArrayOptions.cs
+    $queryArgs = [System.Collections.Generic.List[string]]::new()
+    if ($null -ne $MaxId) { $queryArgs.Add("max_id=$MaxId") }
+    if ($null -ne $SinceId) { $queryArgs.Add("since_id=$SinceId") }
+    if ($null -ne $MinId) { $queryArgs.Add("min_id=$MinId") }
+    if ($null -ne $Limit) { $queryArgs.Add("limit=$Limit") }
+    if ($ExcludeTypes.Length) { $ExcludeTypes | ForEach-Object { $queryArgs.Add("exclude_types[]=$_") } }
+
+    $query = ""
+    if ($queryArgs.Length) {
+        $query = "?" + ($queryArgs | Join-String -Separator '&')
+    }
+
+    Invoke-MastodonApiRequest -Method:Get -Route:"api/v1/notifications$query"
+}
+
+function Get-MastodonNotification {
+    param([long] $Id)
+    Invoke-MastodonApiRequest -Method:Get -Route:"api/v1/notifications/$Id"
+}
+
 
 # function Connect-MastodonInstance {
 #     param([string] $Instance, [string] $Email, [string] $Password)
