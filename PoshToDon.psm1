@@ -1,4 +1,6 @@
 #Requires -PSEdition Core
+# api specs
+# https://docs.joinmastodon.org/methods/apps/
 
 $script:validScopes = "read", "write", "follow", "push", "crypto"
 
@@ -18,6 +20,47 @@ class AppRegistration {
 [AppRegistration]$script:appRegistration = $null
 [string]$script:instance = $null
 $script:auth = $null
+
+
+function ConvertTo-QueryArguments {
+    param(
+        [Parameter(ValueFromPipeline)]
+        [hashtable] $Data,
+
+        [System.Collections.Generic.List[string]] $QueryParameters = [System.Collections.Generic.List[string]]::new()
+    )
+
+    $QueryParameters = [System.Collections.Generic.List[string]]::new()
+    $data.keys | ForEach-Object {
+        if ($null -eq $data[$_]) {
+            return # end current foreach pass
+        }
+
+        if ($data[$_] -is [System.Collections.IEnumerable]) {
+            foreach ($element in $data[$_]) {
+                "$_[]=$element"
+            }
+        } else {
+            "$_=$($data[$_])"
+        }
+    }
+}
+
+function ConvertTo-Query {
+    begin {
+        $argumentList = [System.Collections.Generic.List[string]]::new()
+    }
+    process {
+        if ($_) {
+            $argumentList.Add($_)
+        } 
+    }
+    end {
+        if ($argumentList.Length) {
+            "?" + ( $argumentList | Join-String -Separator '&' )
+        } 
+    }
+}
 
 function Set-MastodonAppRegistration {
     param(
@@ -170,17 +213,13 @@ function Get-MastodonNotifications {
         [string[]] $ExcludeTypes
     )
     # https://github.com/glacasa/Mastonet/blob/main/Mastonet/ArrayOptions.cs
-    $queryArgs = [System.Collections.Generic.List[string]]::new()
-    if ($null -ne $MaxId) { $queryArgs.Add("max_id=$MaxId") }
-    if ($null -ne $SinceId) { $queryArgs.Add("since_id=$SinceId") }
-    if ($null -ne $MinId) { $queryArgs.Add("min_id=$MinId") }
-    if ($null -ne $Limit) { $queryArgs.Add("limit=$Limit") }
-    if ($ExcludeTypes.Length) { $ExcludeTypes | ForEach-Object { $queryArgs.Add("exclude_types[]=$_") } }
-
-    $query = ""
-    if ($queryArgs.Length) {
-        $query = "?" + ($queryArgs | Join-String -Separator '&')
-    }
+    $query = @{
+        max_id        = $MaxId
+        since_id      = $SinceId
+        min_id        = $MinId
+        limit         = $Limit
+        exclude_types = $ExcludeTypes
+    } | ConvertTo-QueryArguments | ConvertTo-Query
 
     Invoke-MastodonApiRequest -Method:Get -Route:"api/v1/notifications$query"
 }
