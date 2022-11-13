@@ -105,7 +105,7 @@ function Set-MastodonAppRegistration {
         $RedirectUri = "urn:ietf:wg:oauth:2.0:oob",
         $Name = "PoshToDon",
         $VapidKey,
-        [ValidateSet({ $script:validScopes })]
+        [ValidateScript({ $_ -in $script:validScopes })]
         [string[]] $Scope = "read"
     )
 
@@ -185,7 +185,7 @@ function New-MastodonApplication {
     param(
         [string]$Name = "PoshToDon",
 
-        [ValidateSet({ $script:validScopes })]
+        [ValidateScript({ $_ -in $script:validScopes })]
         [string[]] $Scope = "read",
         
         [string] $Instance = $null
