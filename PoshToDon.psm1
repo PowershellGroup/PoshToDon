@@ -2,7 +2,7 @@
 # api specs
 # https://docs.joinmastodon.org/methods/apps/
 
-$script:validScopes = "read", "write", "follow", "push", "crypto"
+$script:validScopes = "read", "write", "write:statuses", "follow", "push", "crypto"
 
 # https://github.com/glacasa/Mastonet/blob/main/Mastonet/Enums/NotificationType.cs
 $script:notificationTypes = "follow", "favourite", "reblog", "mention", "poll"
@@ -22,7 +22,42 @@ class AppRegistration {
 $script:auth = $null
 
 
-function ConvertTo-QueryArguments {
+function Get-MastodonArrayQueryParameters {
+    param(
+        [System.Nullable[long]] $MaxId,
+
+        [System.Nullable[long]] $SinceId,
+
+        [System.Nullable[long]] $MinId,
+
+        [System.Nullable[int]] $Limit
+    )
+    @{
+        max_id        = $MaxId
+        since_id      = $SinceId
+        min_id        = $MinId
+        limit         = $Limit
+    } | ConvertTo-QueryParameters
+}
+
+# filters null elements form the data
+# avoids checking every input for null in every method
+function Compress-MastodonPostData {
+    param(
+        [Parameter(ValueFromPipeline)]
+        [hashtable]$InputObject
+    )
+
+    $compressed = @{}
+    $InputObject.Keys | ForEach-Object {
+        if ($InputObject[$_]) {
+            $compressed[$_] = $InputObject[$_]
+        }
+    }
+    $compressed
+}
+
+function ConvertTo-QueryParameters {
     param(
         [Parameter(ValueFromPipeline)]
         [hashtable] $Data,
@@ -117,18 +152,32 @@ function Get-MastodonUri {
 function Invoke-MastodonApiRequest {
     param(
         [ValidateSet("Post", "Get")]
-        $Method,
-        $Route,
-        $Data,
-        [hashtable]$Headers = @{}
+        [string] $Method,
+        [string] $Route,
+        [hashtable] $Data,
+        [hashtable] $Headers = @{}
     )
 
     if ($script:auth -and (-not $Headers['Authorization'])) {
         $Headers['Authorization'] = "Bearer $($script:auth.access_token)"
     }
 
-    # Invoke-RestMethod -Method:"Post" -Body:@{"client_name"="PoshToDon";"scopes"="read";"redirect_uris" = "urn:ietf:wg:oauth:2.0:oob"} -Uri:"https://home.social/api/v1/apps"
-    Invoke-RestMethod -Method:$Method -Body:$Data -Uri:(Get-MastodonUri -Route:$Route) -Headers:$headers
+    # Invoke-RestMethod 
+    #     -Method:"Post" 
+    #     -Body:@{"client_name"="PoshToDon";"scopes"="read";"redirect_uris" = "urn:ietf:wg:oauth:2.0:oob"} 
+    #     -Uri:"https://home.social/api/v1/apps"
+
+    $invokeSplat = @{
+        Method  = $Method
+        Uri     = Get-MastodonUri -Route:$Route
+        Headers = $headers
+    }
+
+    if ($Data) {
+        $invokeSplat['Body'] = $Data | Compress-MastodonPostData
+    }
+
+    Invoke-RestMethod @invokeSplat
 }
 
 # https://github.com/glacasa/Mastonet/blob/main/Mastonet/AuthenticationClient.cs
@@ -166,7 +215,7 @@ function Connect-MastodonApplication {
     param(
         [string] $Email,
         [securestring] $Password,
-        [Validateset({ $script:validScopes })]
+        [ValidateScript({ $_ -in $script:validScopes })]
         [string[]] $Scope
     )
 
@@ -180,6 +229,10 @@ function Connect-MastodonApplication {
         grant_type = 'password'
         username = $Email
         password = ConvertFrom-SecureString $Password -AsPlainText
+    }
+
+    if ($Scope) {
+        $data['scope'] = $Scope | Join-String -Separator:' '
     }
 
     $auth = Invoke-MastodonApiRequest -Method:Post -Route:"oauth/token" -Data:$data
@@ -213,13 +266,11 @@ function Get-MastodonNotifications {
         [string[]] $ExcludeTypes
     )
     # https://github.com/glacasa/Mastonet/blob/main/Mastonet/ArrayOptions.cs
+    $queryParameters = Get-MastodonArrayQueryParameters @PSBoundParameters
+    
     $query = @{
-        max_id        = $MaxId
-        since_id      = $SinceId
-        min_id        = $MinId
-        limit         = $Limit
         exclude_types = $ExcludeTypes
-    } | ConvertTo-QueryArguments | ConvertTo-Query
+    } | ConvertTo-QueryParameters -QueryParameters:$queryParameters | ConvertTo-Query
 
     Invoke-MastodonApiRequest -Method:Get -Route:"api/v1/notifications$query"
 }
@@ -229,7 +280,71 @@ function Get-MastodonNotification {
     Invoke-MastodonApiRequest -Method:Get -Route:"api/v1/notifications/$Id"
 }
 
-# function Connect-MastodonInstance {
-#     param([string] $Instance, [string] $Email, [string] $Password)
-#     $script:instance = $Instance
-# }
+function Confirm-MastodonNotification {
+    param([long] $Id)
+    Invoke-MastodonApiRequest -Method:Post -Route:"api/v1/notifications/dismiss" -Data @{ id = $Id }
+}
+
+function Get-MastodonCustomEmojis {
+    Invoke-MastodonApiRequest -Method:Get -Route:"api/v1/custom_emojis"
+}
+
+function GetMastodonReports {
+    param(
+        [System.Nullable[long]] $MaxId,
+        [System.Nullable[long]] $SinceId,
+        [System.Nullable[long]] $MinId,
+        [System.Nullable[int]] $Limit
+    )
+    $query = Get-MastodonArrayQueryArguments @PSBoundParameters | ConvertTo-Query
+    Invoke-MastodonApiRequest -Method:Get -Route:"api/v1/reports$query"
+}
+
+# https://docs.joinmastodon.org/methods/statuses/
+function New-MastodonStatus {
+    param(
+        # optional if media ids are filled
+        [string] $Status,
+        
+        [long[]] $MediaIds,
+        
+        [switch] $Sensitive,
+        
+        [string] $SpoilerText,
+        
+        [ValidateSet('public', 'unlisted', 'private', 'direct')]
+        [string] $Visibility,
+        
+        [System.Nullable[DateTimeOffset]] $ScheduledAt,
+
+        # ISO 639 Language Code; optional
+        # 'de', 'en', ?!
+        # https://en.wikipedia.org/wiki/ISO_639
+        [string] $Language
+    )
+
+    if ((-not $Status) -and (-not $MediaIds)) {
+        throw 'Pass MediaIds or a Status'
+    }
+
+    $data = @{
+        status       = $Status
+        media_ids    = $MediaIds
+        sensitive    = $Sensitive
+        spoiler_text = $SpoilerText
+        visibility   = $Visibility
+        language     = $Language
+    }
+
+    $headers = @{
+        "Idempotency-Key" = [Guid]::NewGuid()
+    }
+
+    if ($null -ne $ScheduledAt) {
+        # convert dateTime into ISO 8601 DateTime
+        # https://learn.microsoft.com/en-us/dotnet/standard/base-types/standard-date-and-time-format-strings#the-round-trip-o-o-format-specifier
+        $data['scheduled_at'] = $ScheduledAt.ToString('o', [cultureinfo]::InvariantCulture)
+    }
+
+    Invoke-MastodonApiRequest -Method:Post -Route:'api/v1/statuses' -Data:$data -Headers:$headers
+}
