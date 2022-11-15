@@ -30,10 +30,10 @@ function New-MastodonSession {
         }
     }
 
-    $script:session = $session
-
     if ($PassThru) {
         $session
+    } else {
+        $script:session = $session
     }
 }
 
