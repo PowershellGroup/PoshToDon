@@ -1,4 +1,4 @@
-Import-Module .\PoshToDon.psm1 -Verbose -Force
+Import-Module .\PoshToDon -Verbose -Force
 
 $script:clientKey = "<fillme>"
 $script:clientSecret = "<fillme>"
