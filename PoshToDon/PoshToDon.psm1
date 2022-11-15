@@ -5,9 +5,7 @@ class InternalAttribute : System.Attribute {}
 class AppRegistration {
     [string] $client_id
     [string] $client_secret
-    [string] $instance
     [string] $redirect_uri
-    [string] $name
     [string] $vapid_key
     [string[]] $scope
 }
@@ -27,11 +25,7 @@ $script:validScopes = "read", "write", "write:statuses", "follow", "push", "cryp
 # https://github.com/glacasa/Mastonet/blob/main/Mastonet/Enums/NotificationType.cs
 $script:notificationTypes = "follow", "favourite", "reblog", "mention", "poll"
 
-
-[AppRegistration]$script:appRegistration = $null
-[string]$script:instance = $null
-$script:auth = $null
-
+$script:session = $null
 
 foreach ($_ in "base", "helper", "api") {
     . "$PSScriptRoot/$_-functions.ps1"

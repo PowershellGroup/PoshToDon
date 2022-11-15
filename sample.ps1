@@ -1,11 +1,26 @@
 Import-Module .\PoshToDon -Verbose -Force
 
-$script:clientKey = "<fillme>"
-$script:clientSecret = "<fillme>"
+$clientKey = "<fillme>"
+$clientSecret = "<fillme>"
+$instance = "<fillme>"
+$email = "<fillme>"
+$password = "<fillme>"
+$scope = "read", "write:statuses"
 
-Set-MastodonAppRegistration -ClientId:$script:clientKey -ClientSecret:$script:clientSecret -Instance:"<fillme>"
-Connect-MastodonApplication -Email:"<fillme>" -Password:"<fillme>" -Scope "read", "write:statuses"
+# create a session (data is not validated yet)
+$session = New-MastodonSession -ClientId:$clientKey -ClientSecret:$clientSecret -Instance:$instance
 
-# Get-MastodonInstance
+# connect to user-api
+# app data is used in combination with user data to authenticate and get an access-token
+Connect-MastodonApplication -Session:$Session -Email:$email -Password:$password -Scope:$scope
 
-Get-MastodonNotifications -Limit 300 -ExcludeTypes favourite, mention | Format-Table
+# sample how to fetch notifications
+Get-MastodonNotifications -Session:$Session -Limit 300 -ExcludeTypes favourite, mention | Format-Table
+
+# session can be passed in and will be used then, but a new session is always stored internally as well.
+# this way you can authenticate with multiple servers at the same time
+
+# this works as well:
+# New-MastodonSession -ClientId:$clientKey -ClientSecret:$clientSecret -Instance:"home.social" -PassThru
+# Connect-MastodonApplication -Email:"<fillme>" -Password:"<fillme>" -Scope "read", "write"
+# Get-MastodonNotifications -Limit 300 -MaxId 87886 -ExcludeTypes favourite, mention | Format-Table
