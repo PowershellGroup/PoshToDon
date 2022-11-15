@@ -1,3 +1,4 @@
+# https://github.com/glacasa/Mastonet/blob/main/Mastonet/ArrayOptions.cs
 function Get-MastodonArrayQueryParameters {
     [Internal()]
     param(
@@ -58,7 +59,6 @@ function ConvertTo-QueryParameters {
     }
 }
 
-# .INTERNAL
 function ConvertTo-Query {
     [Internal()]
     param()
