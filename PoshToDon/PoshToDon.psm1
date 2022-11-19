@@ -4,7 +4,7 @@ class InternalAttribute : System.Attribute {}
 
 class AppRegistration {
     [string] $client_id
-    [string] $client_secret
+    [securestring] $client_secret
     [string] $redirect_uri
     [string] $vapid_key
     [string[]] $scope
@@ -19,7 +19,6 @@ class MastodonSession {
 
 # api specs
 # https://docs.joinmastodon.org/methods/apps/
-
 $script:validScopes = "read", "write", "write:statuses", "follow", "push", "crypto"
 
 # https://github.com/glacasa/Mastonet/blob/main/Mastonet/Enums/NotificationType.cs

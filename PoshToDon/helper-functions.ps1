@@ -18,7 +18,7 @@ function Get-MastodonArrayQueryParameters {
 
 # filters null elements form the data
 # avoids checking every input for null in every method
-function Compress-MastodonPostData {
+function Compress-MastodonData {
     [Internal()]
     param(
         [Parameter(ValueFromPipeline)]
@@ -49,7 +49,7 @@ function ConvertTo-QueryParameters {
             return # end current foreach pass
         }
 
-        if ($data[$_] -is [System.Collections.IEnumerable]) {
+        if ($data[$_] -is [array]) {
             foreach ($element in $data[$_]) {
                 "$_[]=$element"
             }

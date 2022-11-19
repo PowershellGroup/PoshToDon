@@ -4,7 +4,7 @@ function New-MastodonSession {
         [string] $ClientId,
 
         [Parameter(Mandatory)]
-        [string] $ClientSecret,
+        [securestring] $ClientSecret,
 
         [Parameter(Mandatory)]
         [string] $Instance,
@@ -37,13 +37,22 @@ function New-MastodonSession {
     }
 }
 
-function Connect-MastodonApplication {
+function Get-MastodonAuthenticationCode {
     param(
-        [string] $Email,
-        [securestring] $Password,
+        # A session, if you dont want to use the default session.
+        [MastodonSession] $Session = $script:session,
+
+        # Scopes that your user access token will be allowed to act on.
+        # Must be a subset of the application scopes
         [ValidateScript({ $_ -in $script:validScopes })]
         [string[]] $Scope,
-        [MastodonSession] $Session = $script:session
+
+        # Shows the url to be opened in your browser,
+        # instead of opening the browser for you
+        [switch] $ShowUrl,
+        
+        # Forces re-authentication (for multiple user-accounts)
+        [switch] $Force
     )
 
     if (-not $Session) {
@@ -51,11 +60,57 @@ function Connect-MastodonApplication {
     }
 
     $data = @{
-        username      = $Email
-        grant_type    = 'password'
         client_id     = $session.AppRegistration.client_id
-        client_secret = $session.AppRegistration.client_secret
-        password      = ConvertFrom-SecureString $Password -AsPlainText
+        response_type = 'code'
+        redirect_uri  = 'urn:ietf:wg:oauth:2.0:oob'
+        force_login   = $Force
+    }
+
+    if ($Scope) {
+        $data['scope'] = $Scope | Join-String -Separator:' '
+    }
+
+    $query = $data | Compress-MastodonData | ConvertTo-QueryParameters | ConvertTo-Query
+
+    Start-Process "https://$($Session.Instance)/oauth/authorize$query"
+    Read-Host "Please enter the code which is displayed in your Browser"
+}
+
+function Connect-MastodonApplication {
+    param(
+        [string] $Email,
+
+        [securestring] $Password,
+
+        [ValidateScript({ $_ -in $script:validScopes })]
+        [string[]] $Scope,
+
+        [MastodonSession] $Session = $script:session,
+
+        [switch] $Force
+    )
+
+    if (-not $Session) {
+        throw 'No Session'
+    }
+
+    $data = @{
+        client_id     = $session.AppRegistration.client_id
+        client_secret = $session.AppRegistration.client_secret | ConvertFrom-SecureString -AsPlainText
+    }
+
+    if ($Email -and $Pasword) {
+        $data['username'] = $Email
+        $data['grant_type'] = 'password'
+        $data['password'] = $Password | ConvertFrom-SecureString -AsPlainText
+    } else {
+        $data['code'] = Get-MastodonAuthenticationCode -Session:$Session -Scope:$Scope
+        $data['grant_type'] = 'authorization_code'
+        $data['redirect_uri'] = 'urn:ietf:wg:oauth:2.0:oob'
+
+        if (-not $data['code']) {
+            throw "No Code"
+        }
     }
 
     if ($Scope) {
@@ -100,44 +155,8 @@ function Invoke-MastodonApiRequest {
     }
 
     if ($Data) {
-        $invokeSplat['Body'] = $Data | Compress-MastodonPostData
+        $invokeSplat['Body'] = $Data | Compress-MastodonData
     }
 
     Invoke-RestMethod @invokeSplat
-}
-
-# not yet sure why i need this function, but its in the implementation this one is based on:
-# https://github.com/glacasa/Mastonet/blob/main/Mastonet/AuthenticationClient.cs
-function New-MastodonApplication {
-    param(
-        [string]$Name = "PoshToDon",
-
-        [ValidateScript({ $_ -in $script:validScopes })]
-        [string[]] $Scope = "read",
-        
-        [string] $Instance = $null,
-
-        [string] $RedirectUri = "urn:ietf:wg:oauth:2.0:oob",
-
-        [MastodonSession] $Session = $script:session,
-        [switch] $PassThru
-    )
-
-    if ($Instance) {
-        Set-MastodonInstance -Instance:$Instance
-    }
-
-    $body = @{
-        "client_name"   = $Name
-        "redirect_uris" = $RedirectUri
-        "scopes"        = ($Scope | Join-String -Separator " ")
-    };
-
-    $session.AppRegistration = Invoke-MastodonApiRequest -Method:Post -Data:$body -Route "api/v1/apps"
-    $session.Instance = $Instance
-    $session.Scope = $Scope
-
-    if ($PassThru) {
-        $appRegistration
-    }
 }
