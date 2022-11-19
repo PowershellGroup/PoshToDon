@@ -38,19 +38,18 @@ function New-MastodonSession {
 }
 
 function Get-MastodonAuthenticationCode {
+    [Internal()]
     param(
         # A session, if you dont want to use the default session.
         [MastodonSession] $Session = $script:session,
 
         # Scopes that your user access token will be allowed to act on.
-        # Must be a subset of the application scopes
-        [ValidateScript({ $_ -in $script:validScopes })]
         [string[]] $Scope,
 
         # Shows the url to be opened in your browser,
         # instead of opening the browser for you
         [switch] $ShowUrl,
-        
+
         # Forces re-authentication (for multiple user-accounts)
         [switch] $Force
     )
@@ -72,7 +71,14 @@ function Get-MastodonAuthenticationCode {
 
     $query = $data | Compress-MastodonData | ConvertTo-QueryParameters | ConvertTo-Query
 
-    Start-Process "https://$($Session.Instance)/oauth/authorize$query"
+    $url = "https://$($Session.Instance)/oauth/authorize$query"
+    if ($ShowUrl) { 
+        Write-Host "Please open this link to log in:"
+        Write-Host $url
+    } else {
+        Start-Process "https://$($Session.Instance)/oauth/authorize$query"
+    }
+
     Read-Host "Please enter the code which is displayed in your Browser"
 }
 
@@ -87,6 +93,7 @@ function Connect-MastodonApplication {
 
         [MastodonSession] $Session = $script:session,
 
+        [switch] $ShowUrl,
         [switch] $Force
     )
 
@@ -104,7 +111,7 @@ function Connect-MastodonApplication {
         $data['grant_type'] = 'password'
         $data['password'] = $Password | ConvertFrom-SecureString -AsPlainText
     } else {
-        $data['code'] = Get-MastodonAuthenticationCode -Session:$Session -Scope:$Scope
+        $data['code'] = Get-MastodonAuthenticationCode -Session:$Session -Scope:$Scope -ShowUrl:$ShowUrl
         $data['grant_type'] = 'authorization_code'
         $data['redirect_uri'] = 'urn:ietf:wg:oauth:2.0:oob'
 
