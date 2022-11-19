@@ -82,18 +82,29 @@ function Get-MastodonAuthenticationCode {
     Read-Host "Please enter the code which is displayed in your Browser"
 }
 
+# Authenticate your user against the app-registry, so the client can fetch infomation in the name of your user.
 function Connect-MastodonApplication {
     param(
+        # Your user-account email to log in
+        [Parameter(ParameterSetName = "Password", Mandatory)]
         [string] $Email,
 
+        # Your user-account password to log in (securestring)
+        [Parameter(ParameterSetName = "Password", Mandatory)]
         [securestring] $Password,
+
+        # Credentials generated externally, to be used for logging you in.
+        [Parameter(ParameterSetName = "Credential", Mandatory)]
+        [pscredential] $Credential,
+
+        [Parameter(ParameterSetName = "Code")]
+        [switch] $ShowUrl,
 
         [ValidateScript({ $_ -in $script:validScopes })]
         [string[]] $Scope,
 
         [MastodonSession] $Session = $script:session,
 
-        [switch] $ShowUrl,
         [switch] $Force
     )
 
@@ -107,9 +118,13 @@ function Connect-MastodonApplication {
     }
 
     if ($Email -and $Pasword) {
-        $data['username'] = $Email
         $data['grant_type'] = 'password'
+        $data['username'] = $Email
         $data['password'] = $Password | ConvertFrom-SecureString -AsPlainText
+    } elseif ($Credential) {
+        $data['grant_type'] = 'password'
+        $data['username'] = $Credential.UserName
+        $data['password'] = $Credential.Password | ConvertFrom-SecureString -AsPlainText
     } else {
         $data['code'] = Get-MastodonAuthenticationCode -Session:$Session -Scope:$Scope -ShowUrl:$ShowUrl
         $data['grant_type'] = 'authorization_code'
