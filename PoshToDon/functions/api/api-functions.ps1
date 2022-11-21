@@ -27,11 +27,9 @@ function Get-MastodonNotifications {
         [MastodonSession] $Session = $script:session
     )
     
-    $queryParameters = Get-MastodonArrayQueryParameters @PSBoundParameters
-
-    $query = @{
-        exclude_types = $ExcludeTypes
-    } | ConvertTo-QueryParameters -QueryParameters:$queryParameters | ConvertTo-Query
+    ArrayQueryParameters @PSBoundParameters
+    | AddData @{ exclude_types = $ExcludeTypes }
+    | ToQuery
 
     Invoke-MastodonApiRequest -Session:$Session -Method:Get -Route:"api/v1/notifications$query"
 }

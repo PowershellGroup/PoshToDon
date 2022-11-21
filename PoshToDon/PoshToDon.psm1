@@ -26,12 +26,10 @@ $script:notificationTypes = "follow", "favourite", "reblog", "mention", "poll"
 
 $script:session = $null
 
-foreach ($_ in "base", "helper", "api") {
-    . "$PSScriptRoot/$_-functions.ps1"
-}
+# Load all functions
+Get-ChildItem -Recurse -File -Filter "*.ps1" -Path ( Join-Path $PSScriptRoot 'functions' ) | ForEach-Object { . $_ }
 
 $toExport = Get-Command -Module $ExecutionContext.SessionState.Module 
 | Where-Object { "Internal" -notin $_.ScriptBlock.Ast.Body.ParamBlock.Attributes.TypeName.FullName } 
 
-#$toExport | Write-Host
 $toExport | Export-ModuleMember
