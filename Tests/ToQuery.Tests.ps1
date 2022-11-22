@@ -2,16 +2,7 @@ BeforeAll {
     Import-Module .\PoshToDon -Force
 }
 
-# function ConvertTo-QueryParameters {
-#     [Internal()]
-#     param(
-#         [Parameter(ValueFromPipeline)]
-#         [hashtable] $Data,
-
-#         [System.Collections.Generic.List[string]] $QueryParameters = [System.Collections.Generic.List[string]]::new()
-#     )
-
-Describe 'ConvertTo-QueryParameters' {
+Describe 'ToQuery' {
     It 'should handle normal entries' {
         InModuleScope PoshToDon {
             @{ entry = "test" } | ToQuery | Should -Be "?entry=test"

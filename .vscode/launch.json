@@ -15,7 +15,7 @@
             "type": "PowerShell",
             "request": "launch",
             "script": "${workspaceFolder}/script.ps1",
-            "args": ["-ListTest"]
+            "args": ["-Dump"]
         },{
             "name": "Invoke-Tests",
             "type": "PowerShell",
