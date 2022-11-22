@@ -33,7 +33,7 @@ function Connect-MastodonApplication {
         client_secret = $session.AppRegistration.client_secret | ConvertFrom-SecureString -AsPlainText
     }
 
-    if ($Email -and $Pasword) {
+    if ($Email -and $Password) {
         $data['grant_type'] = 'password'
         $data['username'] = $Email
         $data['password'] = $Password | ConvertFrom-SecureString -AsPlainText
