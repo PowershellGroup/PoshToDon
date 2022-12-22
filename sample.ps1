@@ -5,6 +5,7 @@ param(
     [switch] $Init,
     [switch] $Dump,
     [switch] $Test,
+    [switch] $Media,
     [switch] $Session
 )
 
@@ -33,6 +34,10 @@ if ($Dump) {
     #Get-MastodonNotifications -Session:$session1 -Limit 300 -MaxId 87886 -ExcludeTypes favourite, mention | Format-Table
 
     355424 | Get-MastodonNotification
+}
+
+if ($Media) {
+    New-MastodonMedia -ImagePath (Join-Path $PSScriptRoot "Assets" "PoshGurl.png")
 }
 
 if ($Session) {

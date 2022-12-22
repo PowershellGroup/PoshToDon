@@ -11,11 +11,11 @@
             "script": "${workspaceFolder}/script.ps1",
             "args": ["-Init"]
         },{
-            "name": "List-Test",
+            "name": "MediaUpload",
             "type": "PowerShell",
             "request": "launch",
             "script": "${workspaceFolder}/script.ps1",
-            "args": ["-Dump"]
+            "args": ["-Init", "-Media"]
         },{
             "name": "Invoke-Tests",
             "type": "PowerShell",
